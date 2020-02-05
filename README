@@ -1,0 +1,48 @@
+--{ WHAT IS IT? }--
+
+vsm is designed to calculate the similarity of a particular input file to a
+query file. It is written as a personal experimentation platform for various
+information retrieval techniques, and was designed to be leveraged by external
+programs or scripts for processing the resulting similarity values.
+
+
+--{ BUILDING }--
+
+Run 'make' in the root directory to compile the program. There is currently
+no installation functionality.
+
+
+--{ RUNNING }--
+
+Using '-h' (or simply running the program with no arguments) will give you
+basic usage instructions. The functionality of the program is fairly
+self-explanatory.
+
+There are also several scripts included that fetch and/or process data using
+vsm in various ways. They each have an explanatory text block at the top to
+explain their purpose.
+
+
+--{ KNOWN (AND IGNORED) ISSUES }--
+
+The index is implemented as an unbalanced binary tree for simplicity and
+performance. However, this means that selected pathologically bad input (such
+as a sorted file) can cause poor performance, and in extreme circumstances,
+exhaustion of stack space due to the recursive functions that traverse
+the index.
+
+Some of the ancillary scripts expect certain files to be in certain places
+and break if they're not there. In most of the scripts these paths should
+be easily changed in variables at the top of the script, but I'm sure
+not all. Sorry. Most of them should be pretty simple to edit according to
+your needs.
+
+The program only supports standard English ASCII text. In the future it might
+be nice to support other languages and character sets, but that is currently
+not a priority.
+
+There are no advanced search features available such as phrase matching and
+operators. Those may make an eventual appearance but I don't know when. I'm
+mostly interested in experimenting with generating real-time, per-document
+indexes, and not re-implementing some of the fine IR search frameworks
+already available.

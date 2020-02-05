@@ -1,0 +1,80 @@
+#!/bin/sh
+
+#
+#  ----------------------------------------------------
+#  vsm - vector space model data similarity
+#  ----------------------------------------------------
+#
+#  Copyright (c) 2008 Jason Bittel <jason.bittel@gmail.com>
+#
+#
+# This script is designed to complement fetch-hosts. It takes a query file and a
+# data directory created by fetch-hosts. It then processes the DB file removing
+# old entries as necessary and re-analyzing the text using vsm. Useful for 
+# refreshing the DB file when the similarity calculations have changed or when
+# applying a new query file to the data.
+#
+
+if [ "$#" -ne 2 ] ; then
+        echo "Error: Malformed parameter list" >&2
+        echo "Usage: ${0} <term-file> <data-dir>" >&2
+        echo "" >&2
+        exit 1
+fi
+
+term_file=${1}
+dir=${2%/}
+
+vsm_bin="./vsm"
+
+if [ ! -x ${vsm_bin} ] ; then
+        echo "Error: Cannot find or access vsm at '${vsm_bin}'" >&2
+        exit 1
+fi
+
+if [ ! -r "${term_file}" ] ; then
+        echo "Error: Cannot read from file '${term_file}'" >&2
+        exit 1
+fi
+
+if [ ! -d "${dir}" ] ; then
+        mkdir "${dir}"
+fi
+touch "${dir}/fetched"
+
+num_hosts=`wc -l "${dir}/fetched" | cut -d" " -f1`
+i=0
+
+# Process all pages listed in fetch file, purging expired pages
+rm -f "${dir}/fetched-2"
+while read hostname filename date_fetched score ; do
+        i=$[${i} + 1]
+
+        # Expire fetched pages in 30 days
+        expire_date=$[${date_fetched} + 2592000]
+        curr_date=`date +%s`
+
+        if [ "${expire_date}" -gt "${curr_date}" ] ; then
+                echo "[${i}/${num_hosts}] Processing ${dir}/${filename}..."
+
+                # Call vsm and test return code
+                ${vsm_bin} -t "${term_file}" "${dir}/${filename}" 1> "${dir}/.temp" 2> "${dir}/${filename}.log"
+                if [ $? -ne 0 ] ; then
+                        echo "Error: Non-zero exit code returned from vsm"
+                        continue
+                fi
+
+                new_score=`cat "${dir}/.temp" | cut -d" "  -f2`
+                echo "${hostname} ${filename} ${date_fetched} ${new_score}" >> "${dir}/fetched-2"
+
+                rm -f "${dir}/.temp"
+        else
+                echo "[${i}/${num_hosts}] Purging ${dir}/${filename}..."
+
+                rm -f "${dir}/${filename}" "${dir}/${filename}.log"
+        fi
+done < "${dir}/fetched"
+
+if [ -f "${dir}/fetched-2" ] ; then
+        mv -f "${dir}/fetched-2" "${dir}/fetched"
+fi

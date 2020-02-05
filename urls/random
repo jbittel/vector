@@ -1,0 +1,36 @@
+#!/bin/sh
+
+#
+#  ----------------------------------------------------
+#  vsm - vector space model data similarity
+#  ----------------------------------------------------
+#
+#  Copyright (c) 2008 Jason Bittel <jason.bittel@gmail.com>
+#
+
+# Take multiple files as input, randomize the order of the lines,
+# and output all lines to STDOUT. Useful for building randomized
+# URL files for testing and experimentation.
+
+if [ $# -eq 0 ] ; then
+        echo "Error: Malformed parameter list" >&2
+        echo "" >&2
+        echo "Usage: ${0} <file>..." >&2
+        exit 1
+fi
+
+files=$@
+
+rm -f *.temp
+
+for file in ${files} ; do
+        while read url ; do
+                echo "${url} ${RANDOM}" >> "${file}.temp"
+        done < "${file}"
+done
+
+sort -k2 -u -n *.temp | cut -f1 -d" "
+
+rm -f *.temp
+
+exit 0

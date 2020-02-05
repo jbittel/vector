@@ -1,0 +1,111 @@
+#!/bin/sh
+
+#
+#  ----------------------------------------------------
+#  vsm - vector space model data similarity
+#  ----------------------------------------------------
+#
+#  Copyright (c) 2008 Jason Bittel <jason.bittel@gmail.com>
+#
+
+#
+# Simple test harness script
+#
+
+run_test() {
+        echo "*** Test ${test_num} ***" >> ${log_file}
+        echo "--------------------" >> ${log_file}
+
+        # Execute test run
+        eval ${vsm_bin} ${1} "&> .temp"
+        exit_code=$?
+        cat ".temp" >> ${log_file}
+        echo "" >> ${log_file}
+
+        # Check return code
+        if [ -n "${2}" ] ; then
+                assert ${2} ${exit_code}
+        fi
+
+        # Check control file if it exists
+        if [ -e "control-${test_num}" ] ; then
+                diff "control-${test_num}" ".temp"
+                diff "control-${test_num}" ".temp" >> ${log_file}
+        fi
+
+        echo "--------------------" >> ${log_file}
+        echo "" >> ${log_file}
+        
+        test_num=$[${test_num} + 1]
+}
+
+assert() {
+        if [ "${1}" != "${2}" ] ; then
+                echo "Test ${test_num} :: Expected: ${1} Found: ${2}"
+                echo "Test ${test_num} :: Expected: ${1} Found: ${2}" >> ${log_file}
+        fi
+}
+
+log_file="harness.log"
+vsm_bin="../vsm"
+valgrind_bin="valgrind"
+test_num=1
+
+basedir=`dirname $0`
+startdir=`pwd`
+cd ${basedir}
+echo "" > ${log_file}
+
+# Generate test files
+touch "query-0" "data-0"
+echo "one" > "data-1"
+echo "one two" > "data-2"
+echo "one two three" > "data-3"
+echo "one two three four" > "data-4"
+echo "one two three four five" > "data-5"
+echo "one two three four five" > "query-5"
+
+# ***** Begin Tests *****
+
+# Zero length query file
+run_test "-t query-0 data-0" 2
+
+# Varying length data files
+run_test "-t query-5 data-0" 0
+run_test "-t query-5 data-1" 0
+run_test "-t query-5 data-2" 0
+run_test "-t query-5 data-3" 0
+run_test "-t query-5 data-4" 0
+run_test "-t query-5 data-5" 0
+
+# Cluster of files
+run_test "-t query-5 data-*" 0
+
+# Reading from STDIN
+run_test "-t query-5 < data-5" 0
+
+# Command line arguments
+run_test "-h" 0
+run_test " " 2
+run_test "-s -t query-5 data-5" 0
+run_test "-w -t query-5 data-5" 0
+run_test "-m 4 -t query-5 data-5" 0
+run_test "-z query-5 data-5" 0
+
+# Valgrind memory leak check 
+${valgrind_bin} --leak-check=yes ${vsm_bin} -t "query-5" "../books/aow.txt" &> "memcheck.log"
+is_freed=`grep "All heap blocks were freed" memcheck.log | wc -l`
+assert 1 ${is_freed}
+echo "*** Executed valgrind memory leak check" >> ${log_file}
+
+# Valgrind profiling run
+${valgrind_bin} --tool=callgrind ${vsm_bin} -t "query-5" "../books/alice30.txt" &> ".temp"
+callgrind_annotate callgrind.out.* > callgrind.log
+rm -f callgrind.out.*
+echo "*** Executed valgrind profiling run" >> ${log_file}
+
+# ***** End Tests *****
+
+# Tidy up generated files
+rm -f ".temp" query-* data-*
+cd ${startdir}

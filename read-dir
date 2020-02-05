@@ -1,0 +1,49 @@
+#!/bin/sh
+
+#
+#  ----------------------------------------------------
+#  vsm - vector space model data similarity
+#  ----------------------------------------------------
+#
+#  Copyright (c) 2008 Jason Bittel <jason.bittel@gmail.com>
+#
+
+# This script takes a query file and a directory. It then executes vsm using
+# that query file against all text files in the directory. It is different from
+# simply passing vsm the text files on the command line as it writes distinct
+# log files for each file.
+
+if [ "$#" -ne 2 ] ; then
+        echo "Error: Malformed parameter list" >&2
+        echo "Usage: ${0} <term-file> <dir>" >&2
+        echo "" >&2
+        exit 1
+fi
+
+term_file=${1}
+dir=${2%/}
+
+vsm_bin="./vsm"
+
+if [ ! -x ${vsm_bin} ] ; then
+        echo "Error: Cannot find or access vsm at '${vsm_bin}'" >&2
+        exit 1
+fi
+
+if [ ! -r "${term_file}" ] ; then
+        echo "Error: Cannot read from file '${term_file}'" >&2
+        exit 1
+fi
+
+if [ "`find ${dir} -name *.txt | wc -l`" -eq 0 ] ; then
+        echo "Error: No text files found in '${dir}'" >&2
+        exit 1
+fi
+
+# Process all text files in specified directory
+for filepath in `ls ${dir}/*.txt` ; do
+        echo "+ Processing ${filepath}..."
+
+        filename=`basename ${filepath}`
+        ${vsm_bin} -t "${term_file}" "${filepath}" 2> "${dir}/${filename}.log"
+done

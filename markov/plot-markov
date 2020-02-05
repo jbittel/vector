@@ -1,0 +1,61 @@
+#!/bin/sh
+
+#
+#  ----------------------------------------------------
+#  vsm - vector space model data similarity
+#  ----------------------------------------------------
+#
+#  Copyright (c) 2008 Jason Bittel <jason.bittel@gmail.com>
+#
+
+# This script is designed to be run in the same directory as the
+# output of markov.pl. It gathers all of the iter<n>.log files,
+# merges them into a single data file and plots all the data
+# using gnuplot. The results are output as similarity.png in the
+# same directory.
+
+num_files=`find . -name iter*.log | wc -l`
+
+if [ ${num_files} -eq 0 ] ; then
+        echo "Error: No iteration files found to process"
+        exit 1
+fi
+
+# Extract data from each iteration log file
+rm -f .temp_*
+for iterfile in `find . -name iter*.log` ; do
+        iterfile_num=`basename ${iterfile} .log | cut -c5-`
+
+        while read datafile similarity ; do
+                datafile=`basename ${datafile} .txt`
+
+                echo "${datafile} ${similarity}" >> ".temp_${iterfile_num}"
+        done < "${iterfile}"
+done
+
+# Columnize all the data into a single file
+pr -mt -s" " `ls .temp_* | sort -t_ -k2 -n` > ".temp_all"
+
+# Configure gnuplot and plot the data
+cat << 'EOF' > ".temp_plot"
+set autoscale
+set terminal png
+set xlabel "file number"
+set ylabel "similarity"
+set title "Similarity of Markov Generated Files"
+set key outside
+set output "similarity.png"
+plot \
+EOF
+
+num_columns=$[${num_files} * 2]
+for column in `seq 2 2 ${num_columns}` ; do
+        if [ ${column} -eq ${num_columns} ] ; then
+                echo "\".temp_all\" using $[${column} - 1]:${column} title \"iter$[${column} / 2]\" with points ps 0.2" >> ".temp_plot"
+        else
+                echo "\".temp_all\" using $[${column} - 1]:${column} title \"iter$[${column} / 2]\" with points ps 0.2, \\" >> ".temp_plot"
+        fi
+done
+
+gnuplot < ".temp_plot"
+rm -f .temp_*
